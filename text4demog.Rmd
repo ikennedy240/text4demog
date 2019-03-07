@@ -2,50 +2,15 @@
 title: "text4demog"
 author: "Ian Kennedy"
 date: "3/6/2019"
-output: ioslides_presentation
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE)
 library(tidyverse)
 ```
 
-## Text Analysis for Demographic Purposes
 
-## Overview
-
-- Available Methods 
-- How to Pick?  
-- Getting Data: Scraping and Apis  
-- Example 1: Unit Type Matching Using Keywords  
-- Example 2: STM to model differences of theme with covariate
-- Example 3: word2vec embeddings to look at changes in meaning
-- Example 4: Deeplearning to do... lots of stuff?
-
-## Available Methods 
-
-Word Level:
- - keyword prevalence
- - bag of words (BOW) regression
- 
-Document Level:
- - Tfidf BOW transformations
- - Topic models (LDA, STM)
-
-Global level:
- - Word embeddings (GLOVE, word2vec)
- - Deep learning language models
-
-## How to Pick?
- - Tools for *reading*
- - Like anything else: let your question drive you
- 
-## Getting Data: Scraping and Apis  
- - Best case: API  
- - This is a pain
- - Lots of tools: Helena for simple use cases
- - Selenium for more custom jobs
- 
 ## Example 0: Craigslist Ads
 
 We'll use a sample of 2000 craigslist listings for today.   
@@ -146,10 +111,42 @@ stm_1 <- stm(out$documents,
                      prevalence = ~ cleanRent,
                      data = out$meta,
                      seed = 24)
-labelTopics()
+labelTopics(stm_1)
+```
 
-effect <- estimateEffect(1:12 ~ cleanRent, stm_1, out$meta)
-plot.estimateEffect(effect, 'cleanRent', stm_1, method = 'pointestimate')
+```{r}
+effect <- estimateEffect(1:12 ~ 1+ cleanRent, stm_1, out$meta)
+plot.estimateEffect(effect, 'cleanRent', stm_1, method = 'difference', cov.value1 = quantile(out$meta$cleanRent, .25), cov.value2 = quantile(out$meta$cleanRent, .75))
+```
+
+---
+I think that visualization is ugly
+```{r}
+sum_effect <- summary(effect)
+coef_sum <- tibble()
+for(i in 1:length(sum_effect$tables)){
+  coef_sum <- bind_rows(coef_sum, sum_effect$tables[[i]][2,])
+}
+ggplot(coef_sum %>% mutate(topic = factor(paste("topic", 1:12))), aes(x = Estimate, y = reorder(topic, -Estimate)))+
+  geom_point()+
+  geom_errorbarh(aes(xmin = Estimate-(1.96*`Std. Error`),xmax = Estimate+(1.96*`Std. Error`)))+
+  geom_vline(xintercept = 0, color = "red")+
+  theme_minimal()+
+  theme(axis.title.y = element_blank())
+```
+
+---
+That sends us back to look at the topics again:
+```{r}
+labelTopics(stm_1, 10:11)
+```
+
+---
+```{r}
+findThoughts(stm_1,texts = out$meta$listingText, topics = 10, n =1)
+```
+```{r}
+findThoughts(stm_1,texts = out$meta$listingText, topics = 11, n =1)
 ```
 
 
