@@ -1,0 +1,160 @@
+---
+title: "text4demog"
+author: "Ian Kennedy"
+date: "3/6/2019"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+```
+
+## Text Analysis for Demographic Purposes
+
+## Overview
+
+- Available Methods 
+- How to Pick?  
+- Getting Data: Scraping and Apis  
+- Example 1: Unit Type Matching Using Keywords  
+- Example 2: STM to model differences of theme with covariate
+- Example 3: word2vec embeddings to look at changes in meaning
+- Example 4: Deeplearning to do... lots of stuff?
+
+## Available Methods 
+
+Word Level:
+ - keyword prevalence
+ - bag of words (BOW) regression
+ 
+Document Level:
+ - Tfidf BOW transformations
+ - Topic models (LDA, STM)
+
+Global level:
+ - Word embeddings (GLOVE, word2vec)
+ - Deep learning language models
+
+## How to Pick?
+ - Tools for *reading*
+ - Like anything else: let your question drive you
+ 
+## Getting Data: Scraping and Apis  
+ - Best case: API  
+ - This is a pain
+ - Lots of tools: Helena for simple use cases
+ - Selenium for more custom jobs
+ 
+## Example 0: Craigslist Ads
+
+We'll use a sample of 2000 craigslist listings for today.   
+```{r results = 'asis'}
+set.seed(1024)
+cl_sample <- read_csv('data/seattle_sample.csv', col_types = cols(.default = 'c')) %>% mutate(cleanRent = as.numeric(cleanRent))%>% drop_na(cleanRent) %>%  sample_n(2000) 
+```
+Raw text looks like this:   
+QR Code Link to This Post
+Contact info:
+Pinewood Village Apartment Homes |
+show contact info
+|
+show contact info
+Awesome View in this Home & the Perfect Location in Bellevue!
+16 149th Ave NE Apt C, Bellevue, WA 98007
+$1775/mo
+KEY FEATURES
+Year Built:
+1983
+Sq Footage:
+Approx. 960 sq ft.
+Bedrooms:
+2 Beds
+Bathrooms:
+1 Baths
+Parking:
+1 Carport | Guest parking
+Lease Duration:
+6, 9, 12 Months
+Deposit:
+$400
+
+
+## Example 1: Words that Make Units Expensive
+An easy sort of analysis is one that works and the word level and looks at some association with a covariate. The tidytext library in R is good for this. In pythong I use the NLTK along with SKlearn.
+
+```{r}
+# load tidytext
+library(tidytext)
+# we want to clean and tokenize, that's what this function does
+prep_texts_only <- function(df){
+  # remove annoying stuff like urls
+df <- df %>% mutate(
+  text = str_replace_all(text, '(http)?(www)?\\S*(\\.com|\\.net|\\.gov|\\.be|\\.org)\\S*', ''),
+  text = str_replace_all(text,"(\\w+)\\W|/(\\w+)","\\1 \\2"),
+  text = str_remove_all(text, '\\d'),
+  text = str_remove(text, 'https|t.co')) # separate words joined by non-word characters
+
+df_toke <- df %>% 
+  unnest_tokens(word,text, strip_punct = TRUE) %>% # tokenize, remove punctuation
+  filter(!nchar(word) < 3) %>% # remove short words
+  anti_join(stop_words, by = "word") # remove stop words
+# go wide with dummies
+df_toke <- inner_join(df_toke, df_toke %>% count(word) %>% filter(n>2), by = 'word') %>% 
+  select(-n) %>% 
+  mutate(present = 1) %>% 
+  distinct(postID, word, .keep_all = TRUE) %>% 
+  spread(word, present, fill = 0)
+if(exists('df_toke$class_label')){
+  df_toke <- df_toke %>% select(postID, class_label, everything()) 
+} else {
+  df_toke <- df_toke %>% select(postID, everything()) 
+}
+return(df_toke)
+}
+# this will give us a very wide table
+cl_sample <- cl_sample %>% mutate(text = str_c(listingTitle, listingText)) %>% prep_texts_only()
+# now we'll fit a model looking at words associated with higher white proportion
+m0 <- lm(paste0('cleanRent ~ `', paste0(names(cl_sample)[66:ncol(cl_sample)], collapse = '`+`'), '`'), data = cl_sample)
+sort(m0$coefficients, decreasing = TRUE)
+```
+
+
+
+## Example 2: STM to model differences of theme with covariate
+
+
+## Example 2: STM to model differences of theme with covariate
+
+At the word level, this analysis doesn't tell us that much. It might be more worthwhile to investigate the document level. 
+
+I like to use STM, a topic modeling method, to do this.
+
+```{r}
+library(stm)
+
+## PROCESS TRAINING DATA
+temp <- textProcessor(documents = cl_sample$listingText, meta=cl_sample[,1:65], onlycharacter = TRUE) 
+out <- prepDocuments(temp$documents, temp$vocab, meta = temp$meta)
+
+```
+
+```{r}
+stm_1 <- stm(out$documents, 
+                     out$vocab, 
+                     K = 12,
+                     prevalence = ~ cleanRent,
+                     data = out$meta,
+                     seed = 24)
+labelTopics()
+
+effect <- estimateEffect(1:12 ~ cleanRent, stm_1, out$meta)
+plot.estimateEffect(effect, 'cleanRent', stm_1, method = 'pointestimate')
+```
+
+
+## Example 3: word2vec embeddings to look at changes in meaning
+
+
+## Example 4: Deeplearning to do... lots of stuff?
+
