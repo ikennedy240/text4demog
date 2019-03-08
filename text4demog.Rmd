@@ -85,10 +85,6 @@ sort(m0$coefficients, decreasing = TRUE)
 ```
 
 
-
-## Example 2: STM to model differences of theme with covariate
-
-
 ## Example 2: STM to model differences of theme with covariate
 
 At the word level, this analysis doesn't tell us that much. It might be more worthwhile to investigate the document level. 
