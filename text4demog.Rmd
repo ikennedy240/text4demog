@@ -16,7 +16,7 @@ library(tidyverse)
 We'll use a sample of 2000 craigslist listings for today.   
 ```{r results = 'asis'}
 set.seed(1024)
-cl_sample <- read_csv('data/seattle_sample.csv', col_types = cols(.default = 'c')) %>% mutate(cleanRent = as.numeric(cleanRent))%>% drop_na(cleanRent) %>%  sample_n(2000) 
+cl_sample <- read_csv('data/seattle_sample_demog.csv', col_types = cols(.default = 'c')) %>% mutate(cleanRent = as.numeric(cleanRent))%>% drop_na(cleanRent)
 ```
 Raw text looks like this:   
 QR Code Link to This Post
@@ -44,6 +44,7 @@ Lease Duration:
 Deposit:
 $400
 
+## Example 0
 
 ## Example 1: Words that Make Units Expensive
 An easy sort of analysis is one that works and the word level and looks at some association with a covariate. The tidytext library in R is good for this. In pythong I use the NLTK along with SKlearn.
