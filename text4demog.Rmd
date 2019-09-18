@@ -44,7 +44,36 @@ Lease Duration:
 Deposit:
 $400
 
-## Example 0
+## Example 0: Examining Keyword Prevalence
+Commonly we start with some words that we think might be important. This vignette examines the prevalence of certain keywords in the sample as a whole, and then in relation to a covariate.
+
+```{r}
+# let's use tidy text to look at overall prevalence
+cl_sample %>% unnest_tokens(word, cleanText) %>% # tokenize, remove punctuation
+  filter(!nchar(word) < 3) %>% # remove short words
+  anti_join(stop_words, by = "word") %>% # remove stop words 
+  count(word) %>% arrange(desc(n))
+
+# then pick some keywords
+
+keywords <- c("rent", "parking",'popular', 'secluded')
+
+# and use just the first one to start
+keyword <- keywords[1]
+
+cl_sample %>% mutate(fake_date = round(parse_number(postID)/1e7)) %>%
+  mutate(rent = str_detect(cleanText, 'rent'),
+         popular = str_detect(cleanText, 'popular'),
+         secluded = str_detect(cleanText, 'secluded')) %>% 
+  group_by(fake_date) %>% 
+  summarise(rent = mean(rent), popular = mean(popular), secluded = mean(secluded)) %>%
+  gather(keyword, prevalance, rent, popular, secluded) %>%
+  ggplot(aes(fake_date, prevalance, color = keyword, group = keyword))+
+  geom_point()+
+  facet_wrap(~keyword)
+
+```
+
 
 ## Example 1: Words that Make Units Expensive
 An easy sort of analysis is one that works and the word level and looks at some association with a covariate. The tidytext library in R is good for this. In pythong I use the NLTK along with SKlearn.
@@ -79,7 +108,7 @@ if(exists('df_toke$class_label')){
 return(df_toke)
 }
 # this will give us a very wide table
-cl_sample <- cl_sample %>% mutate(text = str_c(listingTitle, listingText)) %>% prep_texts_only()
+cl_sample_toke <- cl_sample %>% mutate(text = str_c(listingTitle, listingText)) %>% prep_texts_only()
 # now we'll fit a model looking at words associated with higher white proportion
 m0 <- lm(paste0('cleanRent ~ `', paste0(names(cl_sample)[66:ncol(cl_sample)], collapse = '`+`'), '`'), data = cl_sample)
 sort(m0$coefficients, decreasing = TRUE)
