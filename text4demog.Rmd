@@ -19,6 +19,7 @@ library(tm)
 We'll use a sample of 2000 craigslist listings for today.   
 ```{r results = 'asis'}
 set.seed(1024)
+# if this doesn't load, make sure you've either opened the rproject folder, or set your working directory to the text4demog repo
 cl_sample <- read_csv('data/seattle_sample_demog.csv', col_types = cols(.default = 'c')) %>% mutate(cleanRent = as.numeric(cleanRent))%>% drop_na(cleanRent)
 ```
 Raw text looks like this:   
