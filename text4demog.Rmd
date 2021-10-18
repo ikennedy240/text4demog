@@ -1,13 +1,16 @@
 ---
 title: "text4demog"
 author: "Ian Kennedy"
-date: "3/6/2019"
+date: "10/18/2021"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, cache = TRUE)
 library(tidyverse)
+library(tidytext)
+library(stm)
+library(tm)
 ```
 
 
@@ -79,8 +82,6 @@ cl_sample %>% mutate(fake_date = round(parse_number(postID)/1e7)) %>%
 An easy sort of analysis is one that works and the word level and looks at some association with a covariate. The tidytext library in R is good for this. In pythong I use the NLTK along with SKlearn.
 
 ```{r}
-# load tidytext
-library(tidytext)
 # we want to clean and tokenize, that's what this function does
 prep_texts_only <- function(df){
   # remove annoying stuff like urls
@@ -110,8 +111,8 @@ return(df_toke)
 # this will give us a very wide table
 cl_sample_toke <- cl_sample %>% mutate(text = str_c(listingTitle, listingText)) %>% prep_texts_only()
 # now we'll fit a model looking at words associated with higher white proportion
-m0 <- lm(paste0('cleanRent ~ `', paste0(names(cl_sample)[66:ncol(cl_sample)], collapse = '`+`'), '`'), data = cl_sample)
-sort(m0$coefficients, decreasing = TRUE)
+m0 <- lm(paste0('cleanRent ~ `', paste0(names(cl_sample_toke)[27:ncol(cl_sample_toke)], collapse = '`+`'), '`'), data = cl_sample_toke %>% filter(cleanRent<4000, cleanRent>300))
+sort(m0$coefficients, decreasing = TRUE)[1:20]
 ```
 
 
@@ -122,10 +123,9 @@ At the word level, this analysis doesn't tell us that much. It might be more wor
 I like to use STM, a topic modeling method, to do this.
 
 ```{r}
-library(stm)
 
 ## PROCESS TRAINING DATA
-temp <- textProcessor(documents = cl_sample$listingText, meta=cl_sample[,1:65], onlycharacter = TRUE) 
+temp <- textProcessor(documents = cl_sample$listingText, meta=cl_sample, onlycharacter = TRUE) 
 out <- prepDocuments(temp$documents, temp$vocab, meta = temp$meta)
 
 ```
@@ -164,20 +164,18 @@ ggplot(coef_sum %>% mutate(topic = factor(paste("topic", 1:12))), aes(x = Estima
 ---
 That sends us back to look at the topics again:
 ```{r}
-labelTopics(stm_1, 10:11)
+topics_of_interest = c(10,7)
+labelTopics(stm_1, topics_of_interest)
 ```
 
 ---
 ```{r}
-findThoughts(stm_1,texts = out$meta$listingText, topics = 10, n =1)
+findThoughts(stm_1,texts = out$meta$listingText, topics = topics_of_interest[1], n =1)
 ```
+
 ```{r}
-findThoughts(stm_1,texts = out$meta$listingText, topics = 11, n =1)
+findThoughts(stm_1,texts = out$meta$listingText, topics = topics_of_interest[2], n =1)
 ```
 
 
-## Example 3: word2vec embeddings to look at changes in meaning
-
-
-## Example 4: Deeplearning to do... lots of stuff?
 
