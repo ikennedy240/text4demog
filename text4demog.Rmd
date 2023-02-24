@@ -58,21 +58,23 @@ cl_sample %>% unnest_tokens(word, cleanText) %>% # tokenize, remove punctuation
   anti_join(stop_words, by = "word") %>% # remove stop words 
   count(word) %>% arrange(desc(n))
 
-# then pick some keywords
 
-keywords <- c("rent", "parking",'popular', 'secluded')
-
-# and use just the first one to start
-keyword <- keywords[1]
-
-cl_sample %>% mutate(fake_date = round(parse_number(postID)/1e7)) %>%
-  mutate(rent = str_detect(cleanText, 'rent'),
-         popular = str_detect(cleanText, 'popular'),
-         secluded = str_detect(cleanText, 'secluded')) %>% 
-  group_by(fake_date) %>% 
-  summarise(rent = mean(rent), popular = mean(popular), secluded = mean(secluded)) %>%
-  gather(keyword, prevalance, rent, popular, secluded) %>%
-  ggplot(aes(fake_date, prevalance, color = keyword, group = keyword))+
+cl_sample %>%
+  # identify texts with particular keywords
+  mutate(spacious = str_detect(cleanText, 'spacious'),
+         storage = str_detect(cleanText, 'storage'),
+         yard = str_detect(cleanText, 'yard'),
+         big = str_detect(cleanText, 'big')) %>% 
+  # group by the number of bedrooms
+  group_by(cleanBeds) %>% 
+  # summarrize across keyword vars
+  summarise(across(spacious:big, mean)) %>%
+  # pivot to a longer table for ggplot
+  pivot_longer(cols = c(spacious, storage, yard, big), 
+         names_to = 'keyword', 
+         values_to = 'prevalance') %>%
+  # plot results
+  ggplot(aes(cleanBeds, prevalance, color = keyword, group = keyword))+
   geom_point()+
   facet_wrap(~keyword)
 
@@ -88,9 +90,9 @@ prep_texts_only <- function(df){
   # remove annoying stuff like urls
 df <- df %>% mutate(
   text = str_replace_all(text, '(http)?(www)?\\S*(\\.com|\\.net|\\.gov|\\.be|\\.org)\\S*', ''),
-  text = str_replace_all(text,"(\\w+)\\W|/(\\w+)","\\1 \\2"),
-  text = str_remove_all(text, '\\d'),
-  text = str_remove(text, 'https|t.co')) # separate words joined by non-word characters
+  text = str_replace_all(text,"(\\w+)\\W|/(\\w+)","\\1 \\2"),#  separate words joined by non-word characters
+  text = str_remove_all(text, '\\d'), # get rid of numbers
+  text = str_remove(text, 'https|t.co')) # more url cleaning
 
 df_toke <- df %>% 
   unnest_tokens(word,text, strip_punct = TRUE) %>% # tokenize, remove punctuation
@@ -111,9 +113,9 @@ return(df_toke)
 }
 # this will give us a very wide table
 cl_sample_toke <- cl_sample %>% mutate(text = str_c(listingTitle, listingText)) %>% prep_texts_only()
-# now we'll fit a model looking at words associated with higher white proportion
+# now we'll fit a model looking at words associated with higher rent
 m0 <- lm(paste0('cleanRent ~ `', paste0(names(cl_sample_toke)[27:ncol(cl_sample_toke)], collapse = '`+`'), '`'), data = cl_sample_toke %>% filter(cleanRent<4000, cleanRent>300))
-sort(m0$coefficients, decreasing = TRUE)[1:20]
+sort(m0$coefficients, decreasing = TRUE)[1:40]
 ```
 
 
